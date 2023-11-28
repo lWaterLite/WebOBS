@@ -5,7 +5,7 @@ from aioquic.asyncio import QuicConnectionProtocol
 from aioquic.h3.connection import H3Connection, H3Event, DataReceived, HeadersReceived, H3_ALPN, DatagramReceived, WebTransportStreamDataReceived
 from aioquic.h3.exceptions import NoAvailablePushIDError
 from aioquic.quic.events import QuicEvent, ProtocolNegotiated
-from typing import Dict, Callable, cast, Optional, Union, Deque
+from typing import Dict, Callable, cast, Optional, Union
 from email.utils import formatdate
 from time import time
 from collections import deque

@@ -2,7 +2,6 @@ import asyncio
 
 from aioquic.h3.connection import H3_ALPN
 from aioquic.quic.configuration import QuicConfiguration
-from aioquic.quic.logger import QuicFileLogger
 from aioquic.asyncio.server import serve
 from pathlib import Path
 

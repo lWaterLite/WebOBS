@@ -1,9 +1,3 @@
-async function createWebTransportStream(url) {
-  transport = new WebTransport(url);
-  await transport.ready;
-  let transportStream = await transport.createBidirectionalStream();
-  return {'readable': transportStream.readable, 'writable': transportStream.writable}
-}
 
 const KEY_FRAME_SIZE = 5;
 const HEADER_LENGTH = 28;
@@ -29,17 +23,17 @@ const config = {
   framerate: 30,
 }
 
-let inputStream, outputStream, encoder, decoder, readStream, writeStream, transport;
+let inputStream, outputStream, encoder, decoder, readStream, writeStream;
 
 const generator = new MediaStreamTrackGenerator({kind: 'video'});
 outputStream = generator.writable;
 displayVideo.srcObject = new MediaStream([generator]);
 
-createWebTransportStream('https://www.localtest.com:4433/wt/push').then(res => {
-  readStream = res.readable;
-  writeStream = res.writable;
-  console.log('WebTransport Created.');
-})
+// createWebTransportStream('https://www.localtest.com:4433/wt/push').then(res => {
+//   readStream = res.readable;
+//   writeStream = res.writable;
+//   console.log('WebTransport Created.');
+// })
 
 /*
 Header format (28 bytes):
@@ -134,10 +128,11 @@ class VideoStreamFactory {
       async start(controller) {
         this.encoder = encoder = new VideoEncoder({
           output: (chunk, metadata) => {
+            console.log('encoding...')
             frameCount++;
             let header = new ArrayBuffer(HEADER_LENGTH)
             let link_id = CHANEL;
-            let length = (chunk.byteLength+28) & 0xFFFFFFFF;
+            let length = (chunk.byteLength + 28) & 0xFFFFFFFF;
             let frameType = (chunk.type === 'key' ? 128 : 0);
             frameType = (frameType & 0xFF) << 24;
             let seqNumber = frameCount & 0xFFFFFFFF;
@@ -153,13 +148,8 @@ class VideoStreamFactory {
             let data = new Uint8Array(chunk.byteLength + HEADER_LENGTH);
             data.set(new Uint8Array(header), 0);
             data.set(new Uint8Array(chunkBuffer), HEADER_LENGTH);
-
             console.log(data);
-            // controller.enqueue(data.buffer);
-
-            let uniDirectStream = transport.createUnidirectionalStream();
-            let writer = uniDirectStream.getWriter(); // MDN IS WRONG!!!
-            writer.write(data);
+            controller.enqueue(data.buffer);
           },
           error: (error) => {
             console.log(error);
@@ -169,6 +159,7 @@ class VideoStreamFactory {
       },
       transform(frame, controller) {
         frameCount++;
+        console.log('transforming...')
         this.encoder.encode(frame, {keyFrame: frameCount % KEY_FRAME_SIZE === 0})
         frame.close();
       }
@@ -198,7 +189,7 @@ class VideoStreamFactory {
   async Start() {
     testButton.disabled = true;
     stopButton.disabled = false;
-    await this.inputStream.pipeThrough(this.encodeVideoStream())
+    this.inputStream.pipeThrough(this.encodeVideoStream())
   }
 
   Stop() {
@@ -246,31 +237,91 @@ function getRandomInt(min, max) {
 
 async function sendPackets() {
   console.log('send start')
-  const url = 'https://www.localtest.com:4433/wt/push'; // 替换为你的服务器地址
+
+  const url = 'https://www.localtest.com:4433/wt/push';
   const transport = new WebTransport(url);
-  console.log(transport)
+  await transport.ready;
+  console.log('wt completed.')
 
-  try {
-    await transport.ready; // 等待连接建立
-    const header = new Uint8Array(28).fill(0xFF);
-    setInterval(async () => {
-      let bodyLength = getRandomInt(20, 50000);
-      let body = new Uint8Array(bodyLength).fill(0x77); // 创建并填充数据
-      let data = new Uint8Array(bodyLength+28);
-      data.set(header, 0);
-      data.set(body, 28);
-      console.log(data)
-      let transportStream = await transport.createUnidirectionalStream();
-      let writer = transportStream.getWriter(); // 获取写入器
-      await writer.write(data); // 发送数据
-    }, 1000); // 每隔 1 秒
+  let captureStream = await navigator.mediaDevices.getDisplayMedia();
+  let [videoTrack] = captureStream.getVideoTracks();
+  let processor = new MediaStreamTrackProcessor(videoTrack);
+  let inputStream = processor.readable;
+  let frameCount = 0
 
-  } catch (error) {
-    console.error('连接失败:', error);
-  }
+  const transprotStream = new TransformStream({
+    async start(controller) {
+      encoder = new VideoEncoder({
+        output: (chunk, metadata) => {
+          let header = new ArrayBuffer(HEADER_LENGTH)
+          let link_id = CHANEL;
+          let length = (chunk.byteLength + 28) & 0xFFFFFFFF;
+          let frameType = (chunk.type === 'key' ? 128 : 0);
+          frameType = (frameType & 0xFF) << 24;
+          let seqNumber = frameCount & 0xFFFFFFFF;
+          let timestamp = chunk.timestamp;
+          writeUint32(header, 0, PRE_SIGNAL);
+          writeUint32(header, 4, link_id);
+          writeUint32(header, 8, length);
+          writeUint32(header, 12, frameType);
+          writeUint32(header, 16, seqNumber);
+          writeUint64(header, 20, BigInt(timestamp));
+          let chunkBuffer = new ArrayBuffer(chunk.byteLength);
+          chunk.copyTo(chunkBuffer);
+          let data = new Uint8Array(chunk.byteLength + HEADER_LENGTH);
+          data.set(new Uint8Array(header), 0);
+          data.set(new Uint8Array(chunkBuffer), HEADER_LENGTH);
+          console.log(data);
+
+          controller.enqueue(data.buffer);
+        },
+        error: err => {
+          console.log(err);
+        }
+      })
+      encoder.configure(config);
+    },
+    async transform(frame){
+      frameCount++;
+      encoder.encode(frame, {keyFrame: frameCount % KEY_FRAME_SIZE === 0})
+      frame.close();
+    }
+  })
+
+  const writableStream = new WritableStream({
+    async write(chunk){
+      let uniDirectStream = await transport.createUnidirectionalStream();
+      let writer = uniDirectStream.getWriter();
+      await writer.write(chunk)
+      await writer.close()
+    }
+  })
+
+  await inputStream.pipeThrough(transprotStream).pipeTo(writableStream);
+
+  // try {
+  //   await transport.ready; // 等待连接建立
+  //   const header = new Uint8Array(28).fill(0xFF);
+  //   setInterval(async () => {
+  //     let bodyLength = getRandomInt(20, 50000);
+  //     let body = new Uint8Array(bodyLength).fill(0x77); // 创建并填充数据
+  //     let data = new Uint8Array(bodyLength+28);
+  //     data.set(header, 0);
+  //     data.set(body, 28);
+  //     console.log(data)
+  //     let transportStream = await transport.createUnidirectionalStream();
+  //     let writer = transportStream.getWriter(); // 获取写入器
+  //     await writer.write(data); // 发送数据
+  //   }, 1000); // 每隔 1 秒
+  //
+  // } catch (error) {
+  //   console.error('连接失败:', error);
+  // }
+
+
 }
 
-testButton.addEventListener('click', test)
+testButton.addEventListener('click', sendPackets)
 stopButton.addEventListener('click', () => {
   videoStreamFactory.Stop();
 })

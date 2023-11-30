@@ -4,7 +4,8 @@ from aioquic import __version__
 from aioquic.asyncio import QuicConnectionProtocol
 from aioquic.h3.connection import H3Connection, H3Event, DataReceived, HeadersReceived, H3_ALPN, DatagramReceived, WebTransportStreamDataReceived
 from aioquic.h3.exceptions import NoAvailablePushIDError
-from aioquic.quic.events import QuicEvent, ProtocolNegotiated
+from aioquic.quic.connection import QuicConnection
+from aioquic.quic.events import QuicEvent, ProtocolNegotiated, StreamDataReceived
 from typing import Dict, Callable, cast, Optional, Union
 from email.utils import formatdate
 from time import time
@@ -163,9 +164,13 @@ class WebTransportHandler:
 
         try:
             await app(self.scope, self.receive, self.send)
-        finally:
+        except Exception as e:
+            print(e)
             if not self.closed:
                 await self.send({'type': 'webtransport.close'})
+        # finally:
+        #     if not self.closed:
+        #         await self.send({'type': 'webtransport.close'})
 
 
 BaseHandler = Union[HttpHandler, WebTransportHandler]
@@ -176,6 +181,16 @@ class HttpServerProtocol(QuicConnectionProtocol):
         super().__init__(*args, **kwargs)
         self._handlers: Dict[int, BaseHandler] = {}
         self._http: Optional[H3Connection] = None
+
+    def quic_event_received(self, event: QuicEvent) -> None:
+        if isinstance(event, ProtocolNegotiated):
+            if event.alpn_protocol in H3_ALPN:
+                self._http = H3Connection(self._quic, enable_webtransport=True)
+
+        if self._http is not None:
+            http_events = self._http.handle_event(event)     # Transform QuicEvent to H3Event
+            for http_event in http_events:
+                self.http_event_received(http_event)
 
     def http_event_received(self, event: H3Event):
         if isinstance(event, HeadersReceived) and event.stream_id not in self._handlers:
@@ -266,12 +281,5 @@ class HttpServerProtocol(QuicConnectionProtocol):
         elif isinstance(event, WebTransportStreamDataReceived):
             handler = self._handlers[event.session_id]
             handler.http_event_received(event)
+            asyncio.ensure_future(handler.run_asgi(app))
 
-    def quic_event_received(self, event: QuicEvent) -> None:
-        if isinstance(event, ProtocolNegotiated):
-            if event.alpn_protocol in H3_ALPN:
-                self._http = H3Connection(self._quic, enable_webtransport=True)
-
-        if self._http is not None:
-            for http_event in self._http.handle_event(event):
-                self.http_event_received(http_event)

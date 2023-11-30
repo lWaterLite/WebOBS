@@ -6,43 +6,36 @@ const HEADER_LENGTH = 28;
 const PRE_SIGNAL = 0xFFFFFFFF;
 const CHANEL = 1;
 
-let webtransport2;
-let wtClosed = false;
-function writeUint32(arr, pos, val) {
-  let view = new DataView(arr)
-  view.setUint32(pos, val, false)
-}
+let transport
+transport = new WebTransport('https://www.localtest.com:4433/wt/get');
 
-let read_stream = true;
-async function read() {
-  webtransport2 = new WebTransport('https://www.localtest.com:4433/wt/test/get');
-  await webtransport2.ready;
-  console.log('WebTransport Created.')
-  let transportStream2 = await webtransport2.createBidirectionalStream();
-  let writer = transportStream2.writable.getWriter();
-  let informer = new ArrayBuffer(4);
-  writeUint32(informer, 0, CHANEL);
-  await writer.write(informer)
-  let reader = transportStream2.readable.getReader();
-  let count = 0
-  while (read_stream && !wtClosed) {
-    let receive = await reader.read();
-    if (receive.value === undefined) {
-      count++
-    }
-    if (count === 10) {
-      read_stream = false;
-    }
-    console.log(receive)
+async function readData(receiveFrame) {
+  const reader = receiveFrame.getReader();
+  while (true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    console.log(value);
   }
 }
 
+async function read() {
+  await transport.ready;
+  console.log('WebTransport Created.')
+
+  const uds = transport.incomingUnidirectionalStreams;
+  const reader = uds.getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    await readData(value);
+  }
+
+}
+
 async function close() {
-  if (webtransport2 !== null) {
-    webtransport2.close()
-    webtransport2.closed.then(() => {
-      wtClosed = true;
-    })
+  if (transport !== null) {
+    transport.close()
+    transport.closed
   }
 }
 

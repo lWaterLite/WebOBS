@@ -7,14 +7,12 @@ from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.types import Scope, Receive, Send
 from starlette.staticfiles import StaticFiles
-from typing import Dict
 
-from .stream.videostream import VideoStreamCollect
+from . import media_handler
 
 TEMPLATE_ROOT = os.path.join(os.path.dirname(__file__), 'templates')
 
-collects: Dict[int, VideoStreamCollect] = {}
-stack = []
+is_connect_set = False
 
 
 async def index(request):
@@ -23,47 +21,28 @@ async def index(request):
     return HTMLResponse(html.read())
 
 
-# async def wt_push(scope, receive: Receive, send: Send) -> None:
-#     global stack
-#     message = await receive()
-#     if message['type'] == 'webtransport.connect':
-#         await send({'type': 'webtransport.accept'})
-#     else:
-#         return
-#
-#     first_recv = True
-#     link_id = None
-#     while True:
-#         try:
-#             message = await receive()
-#             if message['type'] == 'webtransport.datagram.receive':
-#                 await send({
-#                     'type': 'webtransport.datagram.send',
-#                     'data': message['data']
-#                 })
-#             elif message['type'] == 'webtransport.stream.receive':
-#                 data = message['data']
-#                 stack.append(data)
-#                 if not data:
-#                     del collects[link_id]
-#                     break
-#
-#                 if first_recv:
-#                     vsc = VideoStreamCollect()
-#                     await vsc.process_and_store_data(data)
-#                     link_id = vsc.link_id
-#                     collects[link_id] = vsc
-#                     first_recv = False
-#                 else:
-#                     await collects[link_id].process_and_store_data(data)
-#
-#                 # await send({
-#                 #     'type': 'webtransport.stream.send',
-#                 #     'data': message['data'],
-#                 #     'stream': message['stream']
-#                 # })
-#         except Exception:
-#             break
+async def wt_test_push(scope, receive, send):
+    global is_connect_set
+    message = await receive()
+    if message['type'] == 'webtransport.connect':
+        if not is_connect_set:
+            is_connect_set = True
+            await send({'type': 'webtransport.accept'})
+    elif message['type'] == 'webtransport.stream.receive':
+        print('asgi receive stream')
+
+
+async def push_frame(receive):
+    frame = None
+    message = await receive()
+    data = message['data']
+    first4 = struct.unpack('!I', data[:4])[0]
+    if first4 == 0xFFFFFFFF:
+        if frame is not None:
+            await media_handler.push(frame)
+            frame = data
+    else:
+        frame += data
 
 
 async def wt_push(scope, receive, send):
@@ -84,12 +63,10 @@ async def wt_push(scope, receive, send):
         data = message['data']
         first4 = struct.unpack('!I', data[:4])[0]
         if first4 == 0xFFFFFFFF:
-            stack.append(frame)
+            await media_handler.push(frame)
             frame = data
         else:
             frame += data
-
-
 
 
 async def wt_get(scope, receive: Receive, send: Send):
@@ -99,28 +76,36 @@ async def wt_get(scope, receive: Receive, send: Send):
     else:
         return
 
-    link_id = None
-    message = await receive()
-    stream_id = message['stream']
-    if message['type'] == 'webtransport.stream.receive':
-        link_id = struct.unpack('!I', message['data'][0:4])[0]
+    while True:
+        try:
+            frame_index = media_handler.get_pre_index() + 5
+            frame = media_handler.get(frame_index)
+            frame_index += 1
 
-    if link_id is None:
-        return
-    else:
-        vsc = collects[link_id]
-        stream_start = vsc.stream_start
-        while True:
-            stream_last = vsc.stream_last
-            if stream_start <= stream_last and stream_start in vsc.stream_data.keys():
-                d = {
-                    'type': 'webtransport.stream.send',
-                    'data': vsc.stream_data[stream_start],
-                    'stream': stream_id
-                }
-                await send(d)
-                stream_start += 1
-                await asyncio.sleep(1)
+            data = {
+                'type': 'webtransport.stream.send',
+                'data': frame,
+                'stream': 3
+            }
+            await send(data)
+            await media_handler.delete()
+            await asyncio.sleep(1)
+        except Exception:
+            break
+
+    # vsc = collects[link_id]
+    # stream_start = vsc.stream_start
+    # while True:
+    #     stream_last = vsc.stream_last
+    #     if stream_start <= stream_last and stream_start in vsc.stream_data.keys():
+    #         d = {
+    #             'type': 'webtransport.stream.send',
+    #             'data': vsc.stream_data[stream_start],
+    #             'stream': stream_id
+    #         }
+    #         await send(d)
+    #         stream_start += 1
+    #         await asyncio.sleep(1)
 
 
 async def wt_test_get(scope, receive: Receive, send: Send):
@@ -165,5 +150,7 @@ async def app(scope: Scope, receive: Receive, send: Send) -> None:
             await wt_get(scope, receive, send)
         elif scope['path'] == '/wt/test/get':
             await wt_test_get(scope, receive, send)
+        elif scope['path'] == '/wt/test/push':
+            await wt_test_push(scope, receive, send)
     else:
         await starletteApp(scope, receive, send)

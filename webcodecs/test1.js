@@ -238,7 +238,7 @@ function getRandomInt(min, max) {
 async function sendPackets() {
   console.log('send start')
 
-  const url = 'https://www.localtest.com:4433/wt/push';
+  const url = 'https://www.localtest.com:4433/wt/test/push';
   const transport = new WebTransport(url);
   await transport.ready;
   console.log('wt completed.')
@@ -272,7 +272,6 @@ async function sendPackets() {
           data.set(new Uint8Array(header), 0);
           data.set(new Uint8Array(chunkBuffer), HEADER_LENGTH);
           console.log(data);
-
           controller.enqueue(data.buffer);
         },
         error: err => {
@@ -292,8 +291,9 @@ async function sendPackets() {
     async write(chunk){
       let uniDirectStream = await transport.createUnidirectionalStream();
       let writer = uniDirectStream.getWriter();
+      await writer.ready;
       await writer.write(chunk)
-      await writer.close()
+      await writer.abort();
     }
   })
 

@@ -15,10 +15,16 @@ class MediaStreamHandler:
         return self._pre_index
 
     async def frame_handler(self, frame: bytes):
-        first4 = struct.unpack('!I', frame[:4])[0]
+        try:
+            first4 = struct.unpack('!I', frame[:4])[0]
+        except Exception as e:
+            print(frame)
+            print(e)
+            return
         if first4 == 0xFFFFFFFF:
             if self._frame is not None:
-                await self._push_chunk(frame)
+                # push property but params, stupid I'm. This cost me nearly 1 hour to fix...
+                await self._push_chunk(self._frame)
             self._frame = frame
 
         else:
@@ -26,7 +32,7 @@ class MediaStreamHandler:
 
     async def _push_chunk(self, data: bytes):
         self._video_chunk[self._index] = data
-        print(f'pushing frame {self._index}')
+        # print(f'pushing frame length {len(data)}')
         self._index += 1
 
     def get_chunk(self, require: int):

@@ -93,14 +93,12 @@ async def wt_get(scope, receive: Receive, send: Send):
 
 
 async def send_chunk(send, stream_id):
-    # chunk_id = media_stream_handler.get_pre_index() + 5
-    # data = media_stream_handler.get_chunk(chunk_id)
-    # await media_stream_handler.delete()
-    d = b'f' * 4000
-    print('sending...')
+    chunk_id = media_stream_handler.get_pre_index()
+    data = media_stream_handler.get_chunk(chunk_id)
+    await media_stream_handler.delete()
     await send({
         'type': 'webtransport.stream.send',
-        'data': d,
+        'data': data,
         'stream': stream_id
     })
 
@@ -108,7 +106,6 @@ async def send_chunk(send, stream_id):
 async def repeat_send_chunk_task(send, stream_id):
     # while media_stream_handler.is_connect_set:
     while True:
-        print('looping...')
         await send_chunk(send, stream_id)
         await asyncio.sleep(1)
 
@@ -124,7 +121,6 @@ async def wt_test_get(scope, receive: Receive, send: Send):
             await send({'type': 'webtransport.accept'})
             connect_set = True
     elif message['type'] == 'webtransport.stream.receive':
-        print(message['data'])
         # await send_chunk(send, message['stream'])
         asyncio.create_task(repeat_send_chunk_task(send, message['stream']))
 

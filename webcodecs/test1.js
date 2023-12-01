@@ -17,10 +17,10 @@ stopButton.disabled = true;
 const config = {
   codec: 'avc1.42002A',
   avc: {format: 'annexb'},
-  width: '1600',
-  height: '900',
-  bitrate: 2_000_000,
-  framerate: 30,
+  width: '640',
+  height: '480',
+  bitrate: 500_000,
+  framerate: 25,
 }
 
 let inputStream, outputStream, encoder, decoder, readStream, writeStream;
@@ -129,7 +129,6 @@ class VideoStreamFactory {
         this.encoder = encoder = new VideoEncoder({
           output: (chunk, metadata) => {
             console.log('encoding...')
-            frameCount++;
             let header = new ArrayBuffer(HEADER_LENGTH)
             let link_id = CHANEL;
             let length = (chunk.byteLength + 28) & 0xFFFFFFFF;
@@ -142,7 +141,7 @@ class VideoStreamFactory {
             writeUint32(header, 8, length);
             writeUint32(header, 12, frameType);
             writeUint32(header, 16, seqNumber);
-            writeUint64(header, 20, BigInt(timestamp));
+            writeUint64(header, 20, timestamp);
             let chunkBuffer = new ArrayBuffer(chunk.byteLength);
             chunk.copyTo(chunkBuffer);
             let data = new Uint8Array(chunk.byteLength + HEADER_LENGTH);
@@ -253,6 +252,7 @@ async function sendPackets() {
     async start(controller) {
       encoder = new VideoEncoder({
         output: (chunk, metadata) => {
+          console.log(chunk)
           let header = new ArrayBuffer(HEADER_LENGTH)
           let link_id = CHANEL;
           let length = (chunk.byteLength + 28) & 0xFFFFFFFF;
@@ -272,6 +272,7 @@ async function sendPackets() {
           data.set(new Uint8Array(header), 0);
           data.set(new Uint8Array(chunkBuffer), HEADER_LENGTH);
           console.log(data);
+          console.log('----------------------')
           controller.enqueue(data.buffer);
         },
         error: err => {

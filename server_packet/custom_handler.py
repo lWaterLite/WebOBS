@@ -149,6 +149,7 @@ class WebTransportHandler:
         elif message['type'] == 'webtransport.datagram.send':
             self.connection.send_datagram(flow_id=self.stream_id, data=message['data'])
         elif message['type'] == 'webtransport.stream.send':
+            # stream_id = self.connection._quic.get_next_available_stream_id(is_unidirectional=True)
             self.connection._quic.send_stream_data(stream_id=message['stream'], data=message['data'])
 
         if data or end_stream:
@@ -162,12 +163,16 @@ class WebTransportHandler:
     async def run_asgi(self, app) -> None:
         self.queue.put_nowait({'type': 'webtransport.connect'})
 
-        try:
-            await app(self.scope, self.receive, self.send)
-        except Exception as e:
-            print(e)
-            if not self.closed:
-                await self.send({'type': 'webtransport.close'})
+        await app(self.scope, self.receive, self.send)
+
+        # try:
+        #     await app(self.scope, self.receive, self.send)
+        # except Exception as e:
+        #     print(e)
+            # if not self.closed:
+            #     await self.send({'type': 'webtransport.close'})
+
+        # Do not close the link!
         # finally:
         #     if not self.closed:
         #         await self.send({'type': 'webtransport.close'})

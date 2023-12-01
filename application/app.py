@@ -8,11 +8,9 @@ from starlette.routing import Route, Mount
 from starlette.types import Scope, Receive, Send
 from starlette.staticfiles import StaticFiles
 
-from . import media_handler
+from . import media_stream_handler
 
 TEMPLATE_ROOT = os.path.join(os.path.dirname(__file__), 'templates')
-
-is_connect_set = False
 
 
 async def index(request):
@@ -22,27 +20,13 @@ async def index(request):
 
 
 async def wt_test_push(scope, receive, send):
-    global is_connect_set
     message = await receive()
     if message['type'] == 'webtransport.connect':
-        if not is_connect_set:
-            is_connect_set = True
+        if not media_stream_handler.is_connect_set:
+            media_stream_handler.is_connect_set = True
             await send({'type': 'webtransport.accept'})
     elif message['type'] == 'webtransport.stream.receive':
-        print('asgi receive stream')
-
-
-async def push_frame(receive):
-    frame = None
-    message = await receive()
-    data = message['data']
-    first4 = struct.unpack('!I', data[:4])[0]
-    if first4 == 0xFFFFFFFF:
-        if frame is not None:
-            await media_handler.push(frame)
-            frame = data
-    else:
-        frame += data
+        await media_stream_handler.frame_handler(message['data'])
 
 
 async def wt_push(scope, receive, send):
@@ -63,7 +47,7 @@ async def wt_push(scope, receive, send):
         data = message['data']
         first4 = struct.unpack('!I', data[:4])[0]
         if first4 == 0xFFFFFFFF:
-            await media_handler.push(frame)
+            await media_stream_handler.push(frame)
             frame = data
         else:
             frame += data
@@ -78,8 +62,8 @@ async def wt_get(scope, receive: Receive, send: Send):
 
     while True:
         try:
-            frame_index = media_handler.get_pre_index() + 5
-            frame = media_handler.get(frame_index)
+            frame_index = media_stream_handler.get_pre_index() + 5
+            frame = media_stream_handler.get_chunk(frame_index)
             frame_index += 1
 
             data = {
@@ -88,7 +72,7 @@ async def wt_get(scope, receive: Receive, send: Send):
                 'stream': 3
             }
             await send(data)
-            await media_handler.delete()
+            await media_stream_handler.delete()
             await asyncio.sleep(1)
         except Exception:
             break
@@ -108,32 +92,41 @@ async def wt_get(scope, receive: Receive, send: Send):
     #         await asyncio.sleep(1)
 
 
+async def send_chunk(send, stream_id):
+    # chunk_id = media_stream_handler.get_pre_index() + 5
+    # data = media_stream_handler.get_chunk(chunk_id)
+    # await media_stream_handler.delete()
+    d = b'f' * 4000
+    print('sending...')
+    await send({
+        'type': 'webtransport.stream.send',
+        'data': d,
+        'stream': stream_id
+    })
+
+
+async def repeat_send_chunk_task(send, stream_id):
+    # while media_stream_handler.is_connect_set:
+    while True:
+        print('looping...')
+        await send_chunk(send, stream_id)
+        await asyncio.sleep(1)
+
+
+connect_set = False
+
+
 async def wt_test_get(scope, receive: Receive, send: Send):
+    global connect_set
     message = await receive()
     if message['type'] == 'webtransport.connect':
-        await send({'type': 'webtransport.accept'})
-    else:
-        return
-
-    link_id = None
-    message = await receive()
-    stream_id = message['stream']
-    if message['type'] == 'webtransport.stream.receive':
-        link_id = struct.unpack('!I', message['data'][0:4])[0]
-
-    if link_id is None:
-        return
-    else:
-        print(link_id)
-        count = b'1' * 4000
-        while True:
-            d = {
-                'type': 'webtransport.stream.send',
-                'data': bytes(count),
-                'stream': stream_id
-            }
-            await send(d)
-            await asyncio.sleep(1)
+        if not connect_set:
+            await send({'type': 'webtransport.accept'})
+            connect_set = True
+    elif message['type'] == 'webtransport.stream.receive':
+        print(message['data'])
+        # await send_chunk(send, message['stream'])
+        asyncio.create_task(repeat_send_chunk_task(send, message['stream']))
 
 
 starletteApp = Starlette(routes=[

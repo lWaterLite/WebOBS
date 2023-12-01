@@ -1,3 +1,3 @@
-from .handles import MediaHandler
+from .handles import MediaStreamHandler
 
-media_handler = MediaHandler()
+media_stream_handler = MediaStreamHandler()

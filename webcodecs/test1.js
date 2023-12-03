@@ -237,7 +237,7 @@ function getRandomInt(min, max) {
 async function sendPackets() {
   console.log('send start')
 
-  const url = 'https://www.localtest.com:4433/wt/test/push';
+  const url = 'https://www.localtest.com:4433/wt/push';
   const transport = new WebTransport(url);
   await transport.ready;
   console.log('wt completed.')

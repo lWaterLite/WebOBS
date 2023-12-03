@@ -5,7 +5,8 @@ from typing import Dict
 
 class MediaStreamHandler:
     def __init__(self):
-        self.is_connect_set = False
+        self.is_push_connect_set = False
+        self.is_get_connect_set = False
         self._frame = None
         self._index: int = 0
         self._pre_index: int = 0
@@ -23,6 +24,7 @@ class MediaStreamHandler:
             return
         if first4 == 0xFFFFFFFF:
             if self._frame is not None:
+
                 # push property but params, stupid I'm. This cost me nearly 1 hour to fix...
                 await self._push_chunk(self._frame)
             self._frame = frame
@@ -32,14 +34,13 @@ class MediaStreamHandler:
 
     async def _push_chunk(self, data: bytes):
         self._video_chunk[self._index] = data
-        # print(f'pushing frame length {len(data)}')
         self._index += 1
 
     def get_chunk(self, require: int):
         if require in self._video_chunk:
-            return self._video_chunk[require]
+            return self._video_chunk[require], True
         else:
-            return self._video_chunk[self._index]
+            return None, False
 
     async def delete(self):
         del self._video_chunk[self._pre_index]

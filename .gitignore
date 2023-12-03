@@ -1,4 +1,9 @@
 /.idea
 /venv
-/log/*.qlog
-/log/sllog.log
+**/*.pyc
+
+/log
+!/log/.gitkeep
+
+/certifi
+!/certifi/.gitkeep

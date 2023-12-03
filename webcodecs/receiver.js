@@ -82,7 +82,7 @@ async function renderFrame() {
   const frame = readFrames.shift();
   // 根据帧的时间戳，计算在显示下一帧之前需要的实时等待时间
   console.log(readFrames.length)
-  await sleep(400);
+  await sleep(40);
   ctx.drawImage(frame, 0, 0);
   frame.close();
 
@@ -93,7 +93,7 @@ async function renderFrame() {
 async function read() {
   let frame = undefined
 
-  transport = new WebTransport('https://www.localtest.com:4433/wt/test/get');
+  transport = new WebTransport('https://www.localtest.com:4433/wt/get');
   await transport.ready;
   console.log('WebTransport Created.')
 

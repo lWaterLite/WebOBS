@@ -216,12 +216,13 @@ class HttpServerProtocol(QuicConnectionProtocol):
                     protocol = value.decode()
                 elif header and not header.startswith(b':'):
                     headers.append((header, value))
-
             if b'?' in raw_path:
                 path, query_string = raw_path.split(b'?', maxsplit=1)
             else:
                 path, query_string = raw_path, b''
             path = path.decode()
+            query_string = query_string.decode()
+
             print(f'HTTP request {method} {path}')
 
             client_addr = self._http._quic._network_paths[0].addr
@@ -229,11 +230,7 @@ class HttpServerProtocol(QuicConnectionProtocol):
 
             handler: BaseHandler
             scope: Dict
-            if method == 'CONNECT' and protocol == 'websocket':
-                # TODO WebSocket
-                return
-            elif method == 'CONNECT' and protocol == 'webtransport':
-                # TODO WebTransport
+            if method == 'CONNECT' and protocol == 'webtransport':
                 scope = {
                     'client': client,
                     'headers': headers,
@@ -252,6 +249,7 @@ class HttpServerProtocol(QuicConnectionProtocol):
                     stream_id=event.stream_id,
                     transmit=self.transmit
                 )
+                handler.queue.put_nowait({'type': '1'})
             else:
                 extensions: Dict[str, Dict] = {}
                 if isinstance(self._http, H3Connection):
@@ -279,9 +277,6 @@ class HttpServerProtocol(QuicConnectionProtocol):
 
         elif isinstance(event, (DataReceived, HeadersReceived)) and event.stream_id in self._handlers:
             handler = self._handlers[event.stream_id]
-            handler.http_event_received(event)
-        elif isinstance(event, DatagramReceived):
-            handler = self._handlers[event.flow_id]
             handler.http_event_received(event)
         elif isinstance(event, WebTransportStreamDataReceived):
             handler = self._handlers[event.session_id]

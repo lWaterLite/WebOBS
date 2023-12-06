@@ -64,7 +64,7 @@ class WebTransportHandler:
                 (b':status', b'200'),
                 (b'server', SERVER_NAME.encode()),
                 (b'date', formatdate(time(), usegmt=True).encode()),
-                (b'sec-webtransport-http3-draft', b'draft02')
+                (b'sec-webtransport-http3-draft', b'draft03')
             ]
             self.connection.send_headers(stream_id=self.stream_id, headers=headers)
 
@@ -85,6 +85,81 @@ class WebTransportHandler:
             self.closed = True
 
         self.transmit()
+
+    async def run_asgi(self, asgiApp) -> None:
+        await asgiApp(self.scope, self.receive, self.send)
+
+
+class HttpHandler:
+    def __init__(self,
+                 authority: bytes,
+                 connection: H3Connection,
+                 protocol: QuicConnectionProtocol,
+                 scope: Dict,
+                 stream_id: int,
+                 stream_ended: bool,
+                 transmit: Callable[[], None]
+                 ) -> None:
+
+        self.stream_id = stream_id
+        self.authority = authority
+        self.connection = connection
+        self.protocol = protocol
+        self.scope = scope
+
+        self.transmit = transmit
+        self.message_queue = asyncio.Queue()
+
+        if stream_ended:
+            self.message_queue.put_nowait({})
+
+    def http_event_received(self, event: H3Event) -> None:
+        if isinstance(event, DataReceived):
+            self.message_queue.put_nowait({
+                'type': 'http.request',
+                'body': event.data,
+                'more_body': not event.stream_ended
+            })
+        elif isinstance(event, HeadersReceived) and event.stream_ended:
+            self.message_queue.put_nowait({
+                'type': 'http.request',
+                'body': b'',
+                'more_body': False
+            })
+
+    async def receive(self) -> Dict:
+        return await self.message_queue.get()
+
+    async def send(self, message: Dict) -> None:
+        if message['type'] == 'http.response.start':
+            self.connection.send_headers(
+                stream_id=self.stream_id,
+                headers=[
+                            (b':status', str(message['status']).encode()),
+                            (b'server', SERVER_NAME.encode()),
+                            (b'data', formatdate(time(), usegmt=True).encode())
+                        ] + [(keyword, value) for keyword, value in message['headers']]
+            )
+        elif message['type'] == 'http.response.body':
+            self.connection.send_data(
+                stream_id=self.stream_id,
+                data=message.get('body', b''),
+                end_stream=not message.get('more_body', False)
+            )
+        elif message['type'] == 'http.response.push' and isinstance(self.connection, H3Connection):
+            request_headers = [
+                                  (b':method', b'GET'),
+                                  (b':scheme', b'https'),
+                                  (b':authority', self.authority),
+                                  (b':path', message['path'].encode())
+                              ] + [(keyword, value) for keyword, value in message['headers']]
+
+            try:
+                self.connection.send_push_promise(stream_id=self.stream_id, headers=request_headers)
+            except NoAvailablePushIDError:
+                return
+
+            self.transmit()
 
     async def run_asgi(self, asgiApp) -> None:
         await asgiApp(self.scope, self.receive, self.send)

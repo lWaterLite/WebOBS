@@ -1,26 +1,84 @@
 * {
     margin: 0;
     padding: 0;
+    user-select: none;
+    color: white;
+    font-family: "Microsoft YaHei UI", sans-serif;
 }
 
 body {
-    margin: 0 40px;
+
+}
+
+.header {
     text-align: center;
+    background: #040404;
+    padding-top: 24px;
+    padding-bottom: 24px;
 }
 
-body h1 {
-    margin: 40px 0;
-    font-size: 56px;
+.header .row-1 {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
 }
 
-body p {
+.header .title {
+    margin-left: 12px;
+    font-size: 80px;
+}
+
+.header .row-2 {
+    font-size: 16px;
+}
+
+.content {
+    padding-top: 16px;
+    padding-bottom: 16px;
+    display: flex;
+    background: #1b1b1b;
+    flex-direction: column;
+    align-items: center;
+}
+
+.content .section {
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.content .section .title {
     font-size: 32px;
+    margin-bottom: 16px;
+}
+
+.content .section .detail {
+    width: 500px;
+    border: #858585 solid 2px;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.content .section .detail:hover {
+    background: #222222;
+}
+
+.content .section .detail a {
+    cursor: pointer;
+    text-decoration: white solid underline;
+}
+
+.content .section .detail a:hover {
+    cursor: pointer;
+    background: white;
+    color: #1b1b1b;
+    text-decoration: #1b1b1b solid underline;
 }
 
 .bottom {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
     font-size: 12px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    background: #040404;
+    text-align: center;
 }

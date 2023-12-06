@@ -15,7 +15,6 @@ TEMPLATE_ROOT = os.path.join(os.path.dirname(__file__), 'templates')
 
 async def index(request):
     html = open(TEMPLATE_ROOT + '/index.html', 'r')
-    await request.send_push_promise('/main.css')
     return HTMLResponse(html.read())
 
 

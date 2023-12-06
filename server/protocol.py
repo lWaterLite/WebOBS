@@ -8,10 +8,10 @@ from aioquic.quic.events import QuicEvent, ProtocolNegotiated
 
 from application.app import app
 from .type.message import WebTransportReceiveMessage
-from .handler import WebTransportHandler
+from .handler import WebTransportHandler, HttpHandler
 from .log import logger, Foreground
 
-BaseHandler = Union[WebTransportHandler]
+BaseHandler = Union[WebTransportHandler, HttpHandler]
 
 
 class HttpServerProtocol(QuicConnectionProtocol):
@@ -86,26 +86,25 @@ class HttpServerProtocol(QuicConnectionProtocol):
                 )
                 handler.message_queue.put_nowait({'type': WebTransportReceiveMessage.Connection})
             else:
-                # extensions: Dict[str, Dict] = {}
-                # if isinstance(self._http, H3Connection):
-                #     extensions['http.response.push'] = {}
-                #
-                # scope = {
-                #     'extensions': extensions,
-                #     'headers': headers,
-                #     'http_version': http_version,
-                #     'method': method,
-                #     'path': path,
-                #     'query_string': query_string,
-                #     'raw_path': raw_path,
-                #     'root_path': '',
-                #     'scheme': 'https',
-                #     'type': 'http'
-                # }
-                # handler = HttpHandler(authority=authority, connection=self._http, protocol=self, scope=scope,
-                #                       stream_id=event.stream_id, stream_ended=event.stream_ended,
-                #                       transmit=self.transmit)
-                return
+                extensions: Dict[str, Dict] = {}
+                if isinstance(self._http, H3Connection):
+                    extensions['http.response.push'] = {}
+
+                scope = {
+                    'extensions': extensions,
+                    'headers': headers,
+                    'http_version': http_version,
+                    'method': method,
+                    'path': path,
+                    'query_string': query_string,
+                    'raw_path': raw_path,
+                    'root_path': '',
+                    'scheme': 'https',
+                    'type': 'http'
+                }
+                handler = HttpHandler(authority=authority, connection=self._http, protocol=self, scope=scope,
+                                      stream_id=event.stream_id, stream_ended=event.stream_ended,
+                                      transmit=self.transmit)
 
             self._handlers[event.stream_id] = handler
             asyncio.ensure_future(handler.run_asgi(app))

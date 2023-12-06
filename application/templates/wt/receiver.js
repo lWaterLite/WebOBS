@@ -1,15 +1,13 @@
-const readButton = document.getElementById('read');
-const closeButton= document.getElementById('close');
+const receiveButton = document.getElementById('receive');
+const stopButton= document.getElementById('stop');
 const renderButton = document.getElementById('render');
 const cnv = document.getElementById('dst');
 const ctx = cnv.getContext("2d", {alpha: false});
 
-const KEY_FRAME_SIZE = 5;
-const HEADER_LENGTH = 28;
-const PRE_SIGNAL = 0xFFFFFFFF;
-const CHANEL = 1;
+renderButton.disabled = true;
+stopButton.disabled = true;
 
-const config = {
+const CONFIG = {
   codec: 'avc1.42002A',
   avc: {format: 'annexb'},
   width: '640',
@@ -35,7 +33,7 @@ let videoDecoder = new VideoDecoder({
   }
 })
 
-videoDecoder.configure(config)
+videoDecoder.configure(CONFIG)
 
 
 function sleep(ms) {
@@ -68,20 +66,12 @@ function concatenateUint8Arrays(array1, array2) {
     return result;
 }
 
-function calculateTimeTillNextFrame(timestamp) {
-  if (timeBase === 0) timeBase = performance.now();
-  const media_time = performance.now() - timeBase;
-  return Math.max(0, timestamp - media_time);
-}
-
 async function renderFrame() {
   console.log('rendering...')
   if (readFrames.length === 0) {
     setTimeout(renderFrame, 2000);
   }
   const frame = readFrames.shift();
-  // 根据帧的时间戳，计算在显示下一帧之前需要的实时等待时间
-  console.log(readFrames.length)
   await sleep(40);
   ctx.drawImage(frame, 0, 0);
   frame.close();
@@ -90,12 +80,15 @@ async function renderFrame() {
   setTimeout(renderFrame, 0);
 }
 
-async function read() {
+async function startReceive() {
   let frame = undefined
 
   transport = new WebTransport('https://www.localtest.com:4433/wt/get');
   await transport.ready;
   console.log('WebTransport Created.')
+
+  stopButton.disabled = false;
+  renderButton.disabled = false;
 
   let bds = await transport.createBidirectionalStream();
   let writer = bds.writable.getWriter();
@@ -119,12 +112,12 @@ async function read() {
         try {
           if (videoDecoder.decodeQueueSize >= 5) {
             videoDecoder.reset();
-            videoDecoder.configure(config)
+            videoDecoder.configure(CONFIG)
           }
           videoDecoder.decode(encodedVideoChunk);
         } catch (e) {
           videoDecoder.reset();
-          videoDecoder.configure(config)
+          videoDecoder.configure(CONFIG)
         }
       }
       frame = value
@@ -136,23 +129,12 @@ async function read() {
 }
 
 
-async function close() {
+async function stopReceive() {
   readLoop = false;
+  await transport.close()
 }
 
-async function test() {
-  const writableStream = new WritableStream({
-    async write(chunk){
-      console.log(chunk)
-    }
-  })
-  console.log('ah oh')
-  await bdsReadable.pipeTo(writableStream);
-}
-
-
-readButton.addEventListener('click', read);
-closeButton.addEventListener('click', close);
+receiveButton.addEventListener('click', startReceive);
+stopButton.addEventListener('click', stopReceive);
 renderButton.addEventListener('click', renderFrame);
-// testButton.addEventListener('click', startWebTransport);
 

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+  <meta charset="UTF-8">
+  <title>WebOBS</title>
+  <link rel="stylesheet" type="text/css" href="streamer.css">
+</head>
+
+<body>
+<div class="page dark-mode">
+  <div class="header">
+    <div class="icon">
+      <img src="../assets/WebOBS.svg" alt="WebOBS" width="100" height="100">
+    </div>
+    <div class="title">WebOBS Receiver</div>
+  </div>
+
+  <div class="content">
+    <canvas id="dst" width="640" height="480" style="margin-bottom: 16px"></canvas>
+    <div class="controls">
+      <button id="receive">Start</button>
+      <button id="render">Render</button>
+      <button id="stop">Stop</button>
+    </div>
+  </div>
+  <div class="footer">Copyright (c) 2023 lWaterLite</div>
+</div>
+
+</body>
+<script src="receiver.js"></script>
+</html>

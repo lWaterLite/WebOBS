@@ -18,6 +18,11 @@ async def index(request):
     return HTMLResponse(html.read())
 
 
+async def readme(request):
+    html = open(TEMPLATE_ROOT + '/readme.html', 'r')
+    return HTMLResponse(html.read())
+
+
 async def streamer(request):
     html = open(TEMPLATE_ROOT + '/wt/streamer.html', 'r')
     return HTMLResponse(html.read())
@@ -54,6 +59,7 @@ async def wt_get(receive, send):
 starletteApp = Starlette(routes=[
     Route('/', index),
     Route('/index', index),
+    Route('/readme', readme),
     Route('/wt/streamer', streamer),
     Route('/wt/receiver', receiver),
     Mount('/', StaticFiles(directory=TEMPLATE_ROOT, html=True))

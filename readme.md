@@ -1,6 +1,6 @@
 # WebOBS
 
-[![WebOBS](https://img.shields.io/badge/WebOBS-%40lWaterLite-blue)](https://github.com/lWaterLite) [![QUIC](https://img.shields.io/badge/QUIC-RFC%209000-blue)]([RFC 9000 - QUIC: A UDP-Based Multiplexed and Secure Transport (ietf.org)](https://datatracker.ietf.org/doc/html/rfc9000)) [![HTTP3](https://img.shields.io/badge/HTTP3-RFC%209114-blue)]([RFC 9114 - HTTP/3 (ietf.org)](https://datatracker.ietf.org/doc/html/rfc9114)) [![WebTransprot](https://img.shields.io/badge/WebTransport-draft03-green)]([WebTransport over HTTP/3 (ietf.org)](https://www.ietf.org/archive/id/draft-ietf-webtrans-http3-03.html))
+[![WebOBS](https://img.shields.io/badge/WebOBS-%40lWaterLite-blue)](https://github.com/lWaterLite) [![QUIC](https://img.shields.io/badge/QUIC-RFC%209000-blue)](https://datatracker.ietf.org/doc/html/rfc9000) [![HTTP3](https://img.shields.io/badge/HTTP3-RFC%209114-blue)](https://datatracker.ietf.org/doc/html/rfc9114) [![WebTransprot](https://img.shields.io/badge/WebTransport-draft03-green)](https://www.ietf.org/archive/id/draft-ietf-webtrans-http3-03.html)
 
 一个基于HTTP3的轻量级实时流媒体传输系统
 
@@ -10,7 +10,7 @@
 
 WebOBS是一个完全基于HTTP3协议传输的，轻量级的，即插即用的流媒体传输系统。客户端完全基于Web API实现。只需简单的几步配制，就能搭建一个简便的实时采集、监控平台。
 
-*注意：本项目所使用的视频传输套件WebTranport截至2023.12.6仍处于草案阶段，甚至没有很好地被Chrome系支持。与此同时，受限于您所在地服务商的影响，QUIC与H3所构成的传输协议可能无法提供更好的网络服务甚至会使得效果更差。基于上述理由，不建议将此系统用于任何实际生产环境中，此项目仅作对于互联网前沿传输协议与套件的实验与探索，任何因项目所造成的影响都与开发者无关。*
+*注意：本项目所使用的视频传输套件WebTransport截至2023.12.6仍处于草案阶段，甚至没有很好地被Chrome系支持。与此同时，受限于您所在地服务商的影响，QUIC与H3所构成的传输协议可能无法提供更好的网络服务甚至会使得效果更差。基于上述理由，不建议将此系统用于任何实际生产环境中，此项目仅作对于互联网前沿传输协议与套件的实验与探索，任何因项目所造成的影响都与开发者无关。*
 
 ------
 
@@ -119,3 +119,4 @@ python main.py
 
 ## 开源许可
 
+[Apache 2.0](LICENSE) @ lWaterLite 2023

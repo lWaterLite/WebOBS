@@ -36,7 +36,9 @@ pip install -r requirements.txt
 
 确保安装pip安装进程正常退出无错误，如果安装过程发生了异常，重新运行上述命令只到正常运行完成。
 
-接下来，将您的域名认证证书和密钥分别重命名为server.pem, server_key.pem，存放在项目的certifi文件夹下，覆盖原有密钥。
+接下来，将您的域名认证证书和密钥分别重命名为server.pem, server_key.pem，存放在项目的`certifi`文件夹下，覆盖原有密钥。
+
+如果你仅仅希望在本地进行测试，那么不要修改`certifi`内的任何内容，同时，请修改你的host文件，将`www.localtest.com`映射到`127.0.0.1`
 
 ### 部署
 
